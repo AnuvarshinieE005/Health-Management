@@ -1,6 +1,7 @@
+import java.io.*;
 import java.util.*;
 
-// Abstract base class
+// Base class
 abstract class Report {
     protected String patientName;
     protected int reportValue;
@@ -11,10 +12,11 @@ abstract class Report {
     }
 
     public abstract String analyzeReport();
+
     public abstract String getSuggestions();
 }
 
-// Blood Pressure Report subclass
+// Blood Pressure Report
 class BloodPressureReport extends Report {
 
     public BloodPressureReport(String patientName, int reportValue) {
@@ -44,7 +46,7 @@ class BloodPressureReport extends Report {
     }
 }
 
-// Blood Sugar Report subclass
+// Blood Sugar Report
 class BloodSugarReport extends Report {
 
     public BloodSugarReport(String patientName, int reportValue) {
@@ -74,12 +76,42 @@ class BloodSugarReport extends Report {
     }
 }
 
-// Main class (partial)
+// Thread class for analyzing report
+class ReportAnalyzer extends Thread {
+    private Report report;
+    private String reportType;
+
+    public ReportAnalyzer(String reportType, Report report) {
+        this.report = report;
+        this.reportType = reportType;
+    }
+
+    @Override
+    public void run() {
+        String analysis = report.analyzeReport();
+        String suggestion = report.getSuggestions();
+
+        String result = "\n--- " + reportType + " Report for " + report.patientName + " ---\n" +
+                        "Value: " + report.reportValue + "\n" +
+                        "Status: " + analysis + "\n" +
+                        "Suggestions: " + suggestion + "\n";
+
+        System.out.println(result);
+
+        // Save to file
+        try (FileWriter fw = new FileWriter("report_output.txt", true)) {
+            fw.write(result);
+        } catch (IOException e) {
+            System.out.println("Error writing to file: " + e.getMessage());
+        }
+    }
+}
+
+// Main class
 public class HealthCareManagementSystem {
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        
         System.out.print("Enter Patient Name: ");
         String name = sc.nextLine();
 
@@ -89,18 +121,24 @@ public class HealthCareManagementSystem {
         System.out.print("Enter Blood Sugar (mg/dL): ");
         int sugar = sc.nextInt();
 
-        // Create report objects
+        // Create reports
         Report bpReport = new BloodPressureReport(name, bp);
         Report sugarReport = new BloodSugarReport(name, sugar);
 
-        // Simple output (no threading/file yet)
-        System.out.println("\n--- Analysis Report ---");
-        System.out.println("Blood Pressure Status: " + bpReport.analyzeReport());
-        System.out.println("Suggestion: " + bpReport.getSuggestions());
+        // Analyze in parallel using threads
+        Thread bpThread = new ReportAnalyzer("Blood Pressure", bpReport);
+        Thread sugarThread = new ReportAnalyzer("Blood Sugar", sugarReport);
 
-        System.out.println("Blood Sugar Status: " + sugarReport.analyzeReport());
-        System.out.println("Suggestion: " + sugarReport.getSuggestions());
+        bpThread.start();
+        sugarThread.start();
 
-        // Remaining: Threading, File Handling
+        try {
+            bpThread.join();
+            sugarThread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("Analysis complete. Check 'report_output.txt' for saved report.");
     }
 }
